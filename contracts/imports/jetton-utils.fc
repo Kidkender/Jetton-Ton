@@ -1,3 +1,6 @@
+;; The pack_jetton_wallet_data function takes the balance, owner’s address,
+;; jetton master’s address, and the wallet’s code as input, then stores them into a cell.
+
 cell pack_jetton_wallet_data(
     int balance, 
     slice owner_address, 
@@ -10,6 +13,11 @@ cell pack_jetton_wallet_data(
             .store_ref(jetton_wallet_code)
             .end_cell();
 }
+
+;; Purpose: This function calculates the initial state of the jetton wallet. 
+;; The "initial state" is the default configuration of the wallet when it is created or deployed on the blockchain. 
+;; It combines the owner's address, jetton master's address, 
+;; and the wallet's code into a cell that represents the wallet's starting state.
 
 cell calculate_jetton_wallet_state_init(
     slice owner_address, 
@@ -25,7 +33,7 @@ cell calculate_jetton_wallet_state_init(
 
 
 ;; Get contract address of jetton 
-slice calculate_jetton_wallet_address(cell, state_init) inline {
+slice calculate_jetton_wallet_address(cell state_init) inline {
     return begin_cell()
             .store_uint(4, 3)
             .store_uint(workchain(), 8)
