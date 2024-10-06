@@ -1,3 +1,5 @@
+#include "params.fc";
+
 ;; The pack_jetton_wallet_data function takes the balance, owner’s address,
 ;; jetton master’s address, and the wallet’s code as input, then stores them into a cell.
 

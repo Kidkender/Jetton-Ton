@@ -20,7 +20,7 @@
     );
 }
 
-() save_data(int total_supply, slice admin_address, cell content, cell jetton_wallet_code) impure inline{
+() save_data(int total_supply, slice admin_address, cell content, cell jetton_wallet_code) impure inline {
     set_data(begin_cell()
                 .store_coins(total_supply)
                 .store_slice(admin_address)
@@ -44,7 +44,9 @@
 }
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
-    if (int in_msg_body.slice_empty?()) { ;; Ignore empty messages
+    ;; . Call a method without changing its contents.
+    ;; ~ Call a method that can change its contents or load new values.
+    if (in_msg_body.slice_empty?()) { ;; Ignore empty messages
         return ();
     }
 
@@ -68,9 +70,9 @@
         int amount = in_msg_body~load_coins(); ;; Amount to mint
         cell master_msg = in_msg_body~load_ref();
         slice master_msg_cs = master_msg.begin_parse();
-        master_msg_cs~skip_bits(32+64); ;; Bit of op + queryId
+        master_msg_cs~skip_bits(32 + 64); ;; Bit of op + queryId
 
-        uint jetton_amount = master_msg_cs~load_coins();
+        int jetton_amount = master_msg_cs~load_coins();
         mint_tokens(to_address, jetton_wallet_code, amount, master_msg);
         save_data(total_supply + jetton_amount, admin_address, content, jetton_wallet_code);
         return ();
@@ -96,7 +98,7 @@
                         .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
                         .store_uint(op::excesses(), 64)
                         .store_uint(queryID, 32);
-            send_raw_message(msg.begin_parse(), 2 + 64);
+            send_raw_message(msg.end_cell(), 2 + 64);
 
         }
         return ();
@@ -126,5 +128,5 @@
 
 slice get_wallet_address(slice owner_address) method_id {
     (_, _, _, cell jetton_wallet_code) = load_data();
-    return calculate_user_jetton_wallet_address(owner_address, my_address()m jetton_wallet_code);
+    return calculate_user_jetton_wallet_address(owner_address, my_address(), jetton_wallet_code);
 }

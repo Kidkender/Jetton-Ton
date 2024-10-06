@@ -17,7 +17,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const counterBefore = await token.getCounter();
 
     await token.sendIncrease(provider.sender(), {
-        increaseBy: 1,
+        increaseBy: 15,
         value: toNano('0.05'),
         queryID: 125,
     });
