@@ -1,19 +1,24 @@
 import { compile } from '@ton/blueprint';
-import { Cell, beginCell, toNano } from '@ton/core';
+import { Cell, beginCell, comment, toNano } from '@ton/core';
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
+import { JettonWallet } from '@ton/ton';
 
 describe('JettonMinter', () => {
-    let code: Cell;
+    let minterCode: Cell;
+    let walletCode: Cell;
 
     beforeAll(async () => {
-        code = await compile('JettonMinter');
+        minterCode = await compile('JettonMinter');
+        walletCode = await compile('JettonWallet');
     });
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let jettonMinter: SandboxContract<JettonMinter>;
+    let jettonWallet: SandboxContract<JettonWallet>;
+    let userWallet: SandboxContract<TreasuryContract>;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
@@ -28,9 +33,9 @@ describe('JettonMinter', () => {
                     totalSupply: BigInt(1000000),
                     adminAddress: AdminAddressSlice,
                     content: new Cell(),
-                    jettonWalletCode: code,
+                    jettonWalletCode: walletCode,
                 },
-                code,
+                walletCode,
             ),
         );
 
@@ -42,6 +47,8 @@ describe('JettonMinter', () => {
             deploy: true,
             success: true,
         });
+
+        // userWallet = blockchain.openContract(JettonWallet.cr)
     });
 
     it('Should deploy', async () => {});

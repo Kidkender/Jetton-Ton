@@ -20,8 +20,6 @@ int gas_consumption() asm "15000000 PUSHINT"; ;;0.015 TON
     );
 }
 
-
-
 () save_data(int balance, slice owner_address, slice jetton_master_address, cell jetton_wallet_code) impure inline {
     set_data(pack_jetton_wallet_data(balance, owner_address, jetton_master_address, jetton_wallet_code));
 }
@@ -230,8 +228,7 @@ int gas_consumption() asm "15000000 PUSHINT"; ;;0.015 TON
         return ();
     }
 
-    throw(0xffff);
-    
+    throw(0xffff); 
 }
 
 (int, slice, slice, cell) get_wallet_data() method_id {
