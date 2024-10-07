@@ -46,7 +46,7 @@ describe('JettonMinter', () => {
 
     it('Should deploy', async () => {});
 
-    it('shound totalSuppy equal balance of admin', async () => {
+    it('should total Supply equal balance of admin', async () => {
         const totalSupply = (await jettonMinter.getTotalSupply()).toString();
 
         expect(totalSupply).toBe(String(1000000));
