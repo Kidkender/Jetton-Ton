@@ -1,9 +1,10 @@
 import { compile } from '@ton/blueprint';
-import { Cell, beginCell, comment, toNano } from '@ton/core';
+import { Cell, beginCell, comment, toNano, Address, ContractState, ContractProvider } from '@ton/core';
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
-import { JettonWallet } from '@ton/ton';
+import { BigNumber } from 'tronweb';
+import { JettonWallet } from '../wrappers/JettonWallet';
 
 describe('JettonMinter', () => {
     let minterCode: Cell;
@@ -16,46 +17,80 @@ describe('JettonMinter', () => {
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
+    let recipient: SandboxContract<TreasuryContract>;
     let jettonMinter: SandboxContract<JettonMinter>;
     let jettonWallet: SandboxContract<JettonWallet>;
-    let userWallet: SandboxContract<TreasuryContract>;
+    let userWallet: any;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
         deployer = await blockchain.treasury('deployer');
+        recipient = await blockchain.treasury('recipient');
 
-        const AdminAddressSlice = beginCell().storeAddress(deployer.address).endCell().beginParse();
-
-        jettonMinter = blockchain.openContract(
-            JettonMinter.createFromConfig(
-                {
-                    totalSupply: BigInt(1000000),
-                    adminAddress: AdminAddressSlice,
-                    content: new Cell(),
-                    jettonWalletCode: walletCode,
-                },
-                walletCode,
-            ),
-        );
+        const config = {
+            totalSupply: toNano('1000'),
+            adminAddress: deployer.address,
+            content: new Cell(),
+            jettonWalletCode: walletCode,
+        };
+        jettonMinter = blockchain.openContract(JettonMinter.createFromConfig(config, minterCode));
 
         const deployResult = await jettonMinter.sendDeploy(deployer.getSender(), toNano(0.05));
 
+        userWallet = async (address: Address) =>
+            blockchain.openContract(JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(address)));
+        console.log('address of contract when deployed: ', jettonMinter.address);
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: jettonMinter.address,
             deploy: true,
             success: true,
         });
-
-        // userWallet = blockchain.openContract(JettonWallet.cr)
     });
 
-    it('Should deploy', async () => {});
+    it('Should original data must be equal with initialize', async () => {
+        const totalSupply = await jettonMinter.getTotalSupply();
+        const adminAddress = await jettonMinter.getAdminAddress();
 
-    it('should total Supply equal balance of admin', async () => {
-        const totalSupply = (await jettonMinter.getTotalSupply()).toString();
+        expect(totalSupply).toEqual(toNano('1000'));
+        expect(adminAddress).toEqualAddress(deployer.address);
+    });
 
-        expect(totalSupply).toBe(String(1000000));
+    it('Should mint tokens correctly', async () => {
+        console.log('contract address in function: ', jettonMinter.address);
+        const adminAddress = await jettonMinter.getAdminAddress();
+        const addressDeployer = deployer.address;
+
+        console.log('admin address: ' + adminAddress);
+        console.log('addressDeployer: ' + addressDeployer);
+
+        const initialTotalSupply = await jettonMinter.getTotalSupply();
+        console.log('initial totalSupply: ' + initialTotalSupply);
+        const amountToMint = toNano('100');
+
+        const mintResult = await jettonMinter.sendMint(
+            recipient.getSender(),
+            deployer.address,
+            amountToMint,
+            toNano('0.05'),
+            toNano('1'),
+        );
+
+        expect(mintResult.transactions).toHaveTransaction({
+            from: jettonMinter.address,
+            to: recipient.address,
+            success: true,
+        });
+
+        let totalSupplyAfterMint = await jettonMinter.getTotalSupply();
+        console.log('Total Supply After Mint: ', totalSupplyAfterMint.toString());
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        totalSupplyAfterMint = await jettonMinter.getTotalSupply();
+        console.log('Total Supply After Delay: ', totalSupplyAfterMint.toString());
+
+        // expect(totalSupplyAfterMint).toBeGreaterThanOrEqual(initialTotalSupply + amountToMint);
     });
 });

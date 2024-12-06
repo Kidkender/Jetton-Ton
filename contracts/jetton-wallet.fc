@@ -78,7 +78,7 @@ int gas_consumption() asm "15000000 PUSHINT"; ;;0.015 TON
     throw_unless(709, msg_value > forward_ton_amount + fwd_count * fwd_fee + (2 * gas_consumption() + min_tons_for_storage()));
 
     send_raw_message(msg.end_cell(), 64);
-    save_data(balance,owner_address,jetton_master_address,jetton_wallet_code);
+    save_data(balance, owner_address, jetton_master_address, jetton_wallet_code);
 }
 
 {-

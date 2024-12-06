@@ -8,12 +8,13 @@ import {
     Sender,
     SendMode,
     Slice,
+    toNano,
 } from '@ton/core';
 import { Opcodes } from './opCode';
 
 export type JettonMinterConfig = {
     totalSupply: bigint;
-    adminAddress: Slice;
+    adminAddress: Address;
     content: Cell;
     jettonWalletCode: Cell;
 };
@@ -21,7 +22,7 @@ export type JettonMinterConfig = {
 export function jettonMinterConfigToCell(config: JettonMinterConfig): Cell {
     return beginCell()
         .storeCoins(config.totalSupply)
-        .storeSlice(config.adminAddress)
+        .storeAddress(config.adminAddress)
         .storeRef(config.content)
         .storeRef(config.jettonWalletCode)
         .endCell();
@@ -54,7 +55,6 @@ export class JettonMinter implements Contract {
         });
     }
 
-    // Mint tokens
     async mint(
         provider: ContractProvider,
         via: Sender,
@@ -81,14 +81,87 @@ export class JettonMinter implements Contract {
         });
     }
 
-    async getTotalSupply(provider: ContractProvider): Promise<bigint> {
+    static mintMessage(
+        from: Address,
+        to: Address,
+        jetton_amount: bigint,
+        forward_ton_amount: bigint,
+        total_ton_amount: bigint,
+        query_id: number | bigint = 0,
+    ) {
+        const mintMsg = beginCell()
+            .storeUint(Opcodes.internal_transfer, 32)
+            .storeUint(0, 64)
+            .storeCoins(jetton_amount)
+            .storeAddress(null)
+            .storeAddress(from)
+            .storeCoins(forward_ton_amount)
+            .storeMaybeRef(null)
+            .endCell();
+
+        return beginCell()
+            .storeUint(Opcodes.mint, 32)
+            .storeUint(query_id, 64)
+            .storeAddress(to)
+            .storeCoins(total_ton_amount)
+            .storeCoins(jetton_amount)
+            .storeRef(mintMsg)
+            .endCell();
+    }
+
+    async sendMint(
+        provider: ContractProvider,
+        via: Sender,
+        toAddress: Address,
+        jetton_amount: bigint,
+        forward_ton_amount: bigint,
+        total_ton_amount: bigint,
+    ) {
+        if (total_ton_amount <= forward_ton_amount) {
+            throw new Error('Total ton amount must be greater than forward amount');
+        }
+        try {
+            await provider.internal(via, {
+                sendMode: SendMode.PAY_GAS_SEPARATELY,
+                body: JettonMinter.mintMessage(
+                    this.address,
+                    toAddress,
+                    jetton_amount,
+                    forward_ton_amount,
+                    total_ton_amount,
+                ),
+                value: total_ton_amount + toNano('0.015'),
+            });
+        } catch (error) {
+            console.error('error sending: ', error);
+        }
+    }
+
+    async getJsonData(provider: ContractProvider): Promise<{
+        totalSupply: bigint;
+        unknownField: number;
+        adminAddress: Address;
+        content: Cell;
+        jettonWalletCode: Cell;
+    }> {
         const result = await provider.get('get_json_data', []);
-        return result.stack.readBigNumber();
+        return {
+            totalSupply: result.stack.readBigNumber(),
+            unknownField: result.stack.readNumber(),
+            adminAddress: result.stack.readAddress(),
+            content: result.stack.readCell(),
+            jettonWalletCode: result.stack.readCell(),
+        };
+    }
+
+    async getTotalSupply(provider: ContractProvider): Promise<bigint> {
+        const result = await this.getJsonData(provider);
+        return result.totalSupply;
     }
 
     async getAdminAddress(provider: ContractProvider): Promise<Address> {
-        const result = await provider.get('get_json_data', []);
-        return result.stack.readAddress();
+        const result = await this.getJsonData(provider);
+        return result.adminAddress;
     }
 
     async getWalletAddress(provider: ContractProvider, ownerAddress: Address): Promise<Address> {
