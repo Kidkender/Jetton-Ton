@@ -117,24 +117,40 @@ export class JettonMinter implements Contract {
         forward_ton_amount: bigint,
         total_ton_amount: bigint,
     ) {
-        if (total_ton_amount <= forward_ton_amount) {
-            throw new Error('Total ton amount must be greater than forward amount');
-        }
-        try {
-            await provider.internal(via, {
-                sendMode: SendMode.PAY_GAS_SEPARATELY,
-                body: JettonMinter.mintMessage(
-                    this.address,
-                    toAddress,
-                    jetton_amount,
-                    forward_ton_amount,
-                    total_ton_amount,
-                ),
-                value: total_ton_amount + toNano('0.015'),
-            });
-        } catch (error) {
-            console.error('error sending: ', error);
-        }
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.mintMessage(
+                this.address,
+                toAddress,
+                jetton_amount,
+                forward_ton_amount,
+                total_ton_amount,
+            ),
+            value: total_ton_amount + toNano('0.015'),
+        });
+    }
+
+    static discoveryMessage(owner_address: Address, include_address: boolean) {
+        return beginCell()
+            .storeUint(Opcodes.provide_wallet_address, 32)
+            .storeUint(0, 64)
+            .storeAddress(owner_address)
+            .storeBit(include_address)
+            .endCell();
+    }
+
+    async sendDiscovery(
+        provider: ContractProvider,
+        via: Sender,
+        owner_address: Address,
+        include_address: boolean,
+        value: bigint = toNano('0.1'),
+    ) {
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.discoveryMessage(owner_address, include_address),
+            value: value,
+        });
     }
 
     async getJsonData(provider: ContractProvider): Promise<{

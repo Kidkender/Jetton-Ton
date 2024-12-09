@@ -5,29 +5,26 @@ import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
 import { BigNumber } from 'tronweb';
 import { JettonWallet } from '../wrappers/JettonWallet';
+import { EError } from '../wrappers/errors.constant';
+import { Opcodes } from './../wrappers/opCode';
 
 describe('JettonMinter', () => {
     let minterCode: Cell;
     let walletCode: Cell;
-
-    beforeAll(async () => {
-        minterCode = await compile('JettonMinter');
-        walletCode = await compile('JettonWallet');
-    });
-
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let recipient: SandboxContract<TreasuryContract>;
     let jettonMinter: SandboxContract<JettonMinter>;
-    let jettonWallet: SandboxContract<JettonWallet>;
     let userWallet: any;
 
-    beforeEach(async () => {
+    beforeAll(async () => {
+        minterCode = await compile('JettonMinter');
+        walletCode = await compile('JettonWallet');
+
         blockchain = await Blockchain.create();
 
         deployer = await blockchain.treasury('deployer');
         recipient = await blockchain.treasury('recipient');
-
         const config = {
             totalSupply: toNano('1000'),
             adminAddress: deployer.address,
@@ -40,7 +37,7 @@ describe('JettonMinter', () => {
 
         userWallet = async (address: Address) =>
             blockchain.openContract(JettonWallet.createFromAddress(await jettonMinter.getWalletAddress(address)));
-        console.log('address of contract when deployed: ', jettonMinter.address);
+
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
             to: jettonMinter.address,
@@ -57,16 +54,47 @@ describe('JettonMinter', () => {
         expect(adminAddress).toEqualAddress(deployer.address);
     });
 
-    it('Should mint tokens correctly', async () => {
-        console.log('contract address in function: ', jettonMinter.address);
-        const adminAddress = await jettonMinter.getAdminAddress();
-        const addressDeployer = deployer.address;
-
-        console.log('admin address: ' + adminAddress);
-        console.log('addressDeployer: ' + addressDeployer);
-
+    it('Only admin can mint', async () => {
         const initialTotalSupply = await jettonMinter.getTotalSupply();
-        console.log('initial totalSupply: ' + initialTotalSupply);
+        const amountToMint = toNano('100');
+
+        const mintResult = await jettonMinter.sendMint(
+            deployer.getSender(),
+            deployer.address,
+            amountToMint,
+            toNano('0.05'),
+            toNano('1'),
+        );
+
+        expect(mintResult.transactions).toHaveTransaction({
+            from: jettonMinter.address,
+            to: await jettonMinter.getWalletAddress(deployer.address),
+            success: true,
+        });
+
+        const mintResultDifferent = await jettonMinter.sendMint(
+            deployer.getSender(),
+            recipient.address,
+            amountToMint,
+            toNano('0.05'),
+            toNano('1'),
+        );
+
+        expect(mintResultDifferent.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: jettonMinter.address,
+            success: true,
+        });
+
+        const recipientBalance = await userWallet(recipient.address);
+        expect(amountToMint).toEqual(await recipientBalance.getBalance());
+
+        const totalSupplyAfterMint = await jettonMinter.getTotalSupply();
+
+        expect(totalSupplyAfterMint).toEqual(initialTotalSupply + amountToMint * BigInt(2));
+    });
+
+    it('Not admin can not mint', async () => {
         const amountToMint = toNano('100');
 
         const mintResult = await jettonMinter.sendMint(
@@ -77,20 +105,19 @@ describe('JettonMinter', () => {
             toNano('1'),
         );
 
+        console.log('original address recipient: ' + recipient.address);
+        console.log('original address owner: ' + deployer.address);
+        console.log('address wallet recipient: ', await jettonMinter.getWalletAddress(recipient.address));
+        console.log('address wallet owner: ', await jettonMinter.getWalletAddress(deployer.address));
+        console.log('address jetton: ', jettonMinter.address);
+
         expect(mintResult.transactions).toHaveTransaction({
-            from: jettonMinter.address,
-            to: recipient.address,
-            success: true,
+            from: recipient.address,
+            to: jettonMinter.address,
+            aborted: true,
+            exitCode: EError.not_admin,
         });
-
-        let totalSupplyAfterMint = await jettonMinter.getTotalSupply();
-        console.log('Total Supply After Mint: ', totalSupplyAfterMint.toString());
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        totalSupplyAfterMint = await jettonMinter.getTotalSupply();
-        console.log('Total Supply After Delay: ', totalSupplyAfterMint.toString());
-
-        // expect(totalSupplyAfterMint).toBeGreaterThanOrEqual(initialTotalSupply + amountToMint);
     });
+
+    // it('', () => {});
 });

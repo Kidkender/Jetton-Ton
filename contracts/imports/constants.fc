@@ -1,0 +1,4 @@
+
+
+int error::insufficient_balance() asm "103 PUSHINT";
+int const::provide_address_gas_consumption() asm "10000000 PUSHINT";

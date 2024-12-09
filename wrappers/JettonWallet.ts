@@ -74,18 +74,37 @@ export class JettonWallet implements Contract {
         });
     }
 
-    async getBalance(provider: ContractProvider): Promise<bigint> {
+    async getDataWallet(provider: ContractProvider): Promise<{
+        balance: bigint;
+        owner_address: Address;
+        jetton_master_address: Address;
+        jetton_wallet_code: Cell;
+    }> {
+        // let state = await provider.getState();
+        // if (state.state.type !== 'active') {
+        //     return { balance: 0n, owner_address: null, jetton_master_address: undefined };
+        // }
         const result = await provider.get('get_wallet_data', []);
-        return result.stack.readBigNumber();
+        return {
+            balance: result.stack.readBigNumber(),
+            owner_address: result.stack.readAddress(),
+            jetton_master_address: result.stack.readAddress(),
+            jetton_wallet_code: result.stack.readCell(),
+        };
+    }
+
+    async getBalance(provider: ContractProvider): Promise<bigint> {
+        const result = await this.getDataWallet(provider);
+        return result.balance;
     }
 
     async getOwnerAddress(provider: ContractProvider): Promise<Address> {
-        const result = await provider.get('get_wallet_data', []);
-        return result.stack.readAddress();
+        const result = await this.getDataWallet(provider);
+        return result.owner_address;
     }
 
     async getJettonMasterAddress(provider: ContractProvider): Promise<Address> {
-        const result = await provider.get('get_wallet_data', []);
-        return result.stack.readAddress();
+        const result = await this.getDataWallet(provider);
+        return result.jetton_master_address;
     }
 }
