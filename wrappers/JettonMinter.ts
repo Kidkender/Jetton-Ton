@@ -7,7 +7,6 @@ import {
     ContractProvider,
     Sender,
     SendMode,
-    Slice,
     toNano,
 } from '@ton/core';
 import { Opcodes } from './opCode';
@@ -18,6 +17,14 @@ export type JettonMinterConfig = {
     content: Cell;
     jettonWalletCode: Cell;
 };
+
+export type JettonMinterContent = {
+    uri: string;
+};
+
+export function jettonContentToCell(content: JettonMinterContent): Cell {
+    return beginCell().storeStringTail(content.uri).endCell();
+}
 
 export function jettonMinterConfigToCell(config: JettonMinterConfig): Cell {
     return beginCell()
@@ -155,7 +162,7 @@ export class JettonMinter implements Contract {
 
     async getJsonData(provider: ContractProvider): Promise<{
         totalSupply: bigint;
-        unknownField: number;
+        mintable: number;
         adminAddress: Address;
         content: Cell;
         jettonWalletCode: Cell;
@@ -163,7 +170,7 @@ export class JettonMinter implements Contract {
         const result = await provider.get('get_json_data', []);
         return {
             totalSupply: result.stack.readBigNumber(),
-            unknownField: result.stack.readNumber(),
+            mintable: result.stack.readNumber(),
             adminAddress: result.stack.readAddress(),
             content: result.stack.readCell(),
             jettonWalletCode: result.stack.readCell(),
@@ -184,5 +191,34 @@ export class JettonMinter implements Contract {
         const ownerAddressCell = beginCell().storeAddress(ownerAddress).endCell();
         const result = await provider.get('get_wallet_address', [{ type: 'slice', cell: ownerAddressCell }]);
         return result.stack.readAddress();
+    }
+
+    async getContent(provider: ContractProvider): Promise<Cell> {
+        const result = await this.getJsonData(provider);
+        return result.content;
+    }
+
+    static changeAdminMessage(newAdmin: Address) {
+        return beginCell().storeUint(Opcodes.change_admin, 32).storeUint(0, 64).storeAddress(newAdmin).endCell();
+    }
+
+    async sendChangeAdmin(provider: ContractProvider, via: Sender, newAdmin: Address) {
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.changeAdminMessage(newAdmin),
+            value: toNano('0.05'),
+        });
+    }
+
+    static changeContentMessage(content: Cell) {
+        return beginCell().storeUint(Opcodes.change_content, 32).storeUint(0, 64).storeRef(content).endCell();
+    }
+
+    async sendChangeContent(provider: ContractProvider, via: Sender, newContent: Cell) {
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: JettonMinter.changeContentMessage(newContent),
+            value: toNano('0.05'),
+        });
     }
 }
