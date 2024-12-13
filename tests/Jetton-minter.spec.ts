@@ -23,9 +23,16 @@ describe('JettonMinter', () => {
 
         deployer = await blockchain.treasury('deployer');
         recipient = await blockchain.treasury('recipient');
-        defaultContent = jettonContentToCell({ uri: 'originalData.github.com' });
+        defaultContent = jettonContentToCell({
+            name: 'example',
+            symbol: 'example',
+            decimals: 4,
+            uri: 'originalData.github.com',
+            image: null,
+            description: null,
+        });
         const config = {
-            totalSupply: toNano('1000'),
+            totalSupply: toNano('0'),
             adminAddress: deployer.address,
             content: defaultContent,
             jettonWalletCode: walletCode,
@@ -51,6 +58,8 @@ describe('JettonMinter', () => {
     it('Should match initialized data', async () => {
         const totalSupply = await jettonMinter.getTotalSupply();
         const adminAddress = await jettonMinter.getAdminAddress();
+        const adminJettonWallet = await getUserWallet(adminAddress);
+        console.log('admin amount: ' + (await adminJettonWallet.getBalance()));
 
         expect(totalSupply).toEqual(toNano('1000'));
         expect(adminAddress).toEqualAddress(deployer.address);
@@ -115,7 +124,14 @@ describe('JettonMinter', () => {
     });
 
     it('Admin can change content', async () => {
-        const newContent = jettonContentToCell({ uri: 'example.github.com' });
+        const newContent = jettonContentToCell({
+            name: 'example',
+            symbol: 'example',
+            decimals: 9,
+            description: null,
+            image: null,
+            uri: null,
+        });
         expect((await jettonMinter.getContent()).equals(defaultContent)).toBe(true);
 
         const changeContentResult = await jettonMinter.sendChangeContent(deployer.getSender(), newContent);

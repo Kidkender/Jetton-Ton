@@ -1,3 +1,4 @@
+import { Sha256 } from '@aws-crypto/sha256-js';
 import {
     Address,
     beginCell,
@@ -5,11 +6,18 @@ import {
     Contract,
     contractAddress,
     ContractProvider,
+    Dictionary,
     Sender,
     SendMode,
+    Slice,
     toNano,
 } from '@ton/core';
 import { Opcodes } from './opCode';
+
+const ONCHAIN_CONTENT_PREFIX = 0x00;
+const OFFCHAIN_CONTENT_PREFIX = 0x01;
+const SNAKE_PREFIX = 0x00;
+const MAX_CELL_SIZE = 1024;
 
 export type JettonMinterConfig = {
     totalSupply: bigint;
@@ -18,12 +26,24 @@ export type JettonMinterConfig = {
     jettonWalletCode: Cell;
 };
 
+// export function buildJettonOffChainMetadata(contentUri: string): Cell {
+//     return beginCell().storeInt(OFFCHAIN_CONTENT_PREFIX, 8).storeBuffer(Buffer.from(contentUri, 'ascii')).endCell();
+// }
+
 export type JettonMinterContent = {
+    type: 0 | 1;
     uri: string;
 };
 
-export function jettonContentToCell(content: JettonMinterContent): Cell {
-    return beginCell().storeStringTail(content.uri).endCell();
+export function jettonContentToCell(content: JettonMinterContent) {
+    return beginCell().storeUint(OFFCHAIN_CONTENT_PREFIX, 8).storeStringTail(content.uri).endCell();
+}
+
+export function parseJettonContent(cell: Cell): JettonMinterContent {
+    const slice = cell.beginParse();
+    const type = slice.loadUint(8) as 0 | 1;
+    const uri = slice.loadStringTail();
+    return { type, uri };
 }
 
 export function jettonMinterConfigToCell(config: JettonMinterConfig): Cell {
