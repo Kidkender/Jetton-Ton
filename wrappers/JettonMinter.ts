@@ -26,17 +26,13 @@ export type JettonMinterConfig = {
     jettonWalletCode: Cell;
 };
 
-// export function buildJettonOffChainMetadata(contentUri: string): Cell {
-//     return beginCell().storeInt(OFFCHAIN_CONTENT_PREFIX, 8).storeBuffer(Buffer.from(contentUri, 'ascii')).endCell();
-// }
-
 export type JettonMinterContent = {
     type: 0 | 1;
     uri: string;
 };
 
-export function jettonContentToCell(content: JettonMinterContent) {
-    return beginCell().storeUint(OFFCHAIN_CONTENT_PREFIX, 8).storeStringTail(content.uri).endCell();
+export function buildJettonOffChainMetadata(contentUri: string): Cell {
+    return beginCell().storeInt(OFFCHAIN_CONTENT_PREFIX, 8).storeBuffer(Buffer.from(contentUri, 'ascii')).endCell();
 }
 
 export function parseJettonContent(cell: Cell): JettonMinterContent {

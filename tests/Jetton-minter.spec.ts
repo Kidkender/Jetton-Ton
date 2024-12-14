@@ -2,7 +2,7 @@ import { compile } from '@ton/blueprint';
 import { Address, Cell, toNano } from '@ton/core';
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import '@ton/test-utils';
-import { jettonContentToCell, JettonMinter } from '../wrappers/JettonMinter';
+import { buildJettonOffChainMetadata, JettonMinter } from '../wrappers/JettonMinter';
 import { JettonWallet } from '../wrappers/JettonWallet';
 import { EError } from '../wrappers/errors.constant';
 
@@ -23,14 +23,7 @@ describe('JettonMinter', () => {
 
         deployer = await blockchain.treasury('deployer');
         recipient = await blockchain.treasury('recipient');
-        defaultContent = jettonContentToCell({
-            name: 'example',
-            symbol: 'example',
-            decimals: 4,
-            uri: 'originalData.github.com',
-            image: null,
-            description: null,
-        });
+        defaultContent = buildJettonOffChainMetadata('originalData.github.com');
         const config = {
             totalSupply: toNano('0'),
             adminAddress: deployer.address,
@@ -124,14 +117,7 @@ describe('JettonMinter', () => {
     });
 
     it('Admin can change content', async () => {
-        const newContent = jettonContentToCell({
-            name: 'example',
-            symbol: 'example',
-            decimals: 9,
-            description: null,
-            image: null,
-            uri: null,
-        });
+        const newContent = buildJettonOffChainMetadata('example1.com');
         expect((await jettonMinter.getContent()).equals(defaultContent)).toBe(true);
 
         const changeContentResult = await jettonMinter.sendChangeContent(deployer.getSender(), newContent);

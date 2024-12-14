@@ -1,6 +1,6 @@
 import { toNano } from '@ton/core';
 import { compile, NetworkProvider } from '@ton/blueprint';
-import { jettonContentToCell, JettonMinter } from '../wrappers/JettonMinter';
+import { buildJettonOffChainMetadata, JettonMinter } from '../wrappers/JettonMinter';
 
 export async function run(provider: NetworkProvider) {
     const walletCode = await compile('JettonWallet');
@@ -8,15 +8,14 @@ export async function run(provider: NetworkProvider) {
     if (!senderAddress) {
         throw new Error(`Sender address not found`);
     }
-    const contentUrl =
-        'https://gist.githubusercontent.com/Kidkender/433f7a7b70a39b7ab0f72475980ea63f/raw/60c7c10989a94fe8b996a5dd6c5da6f76bc1797e/jetton-minter-metata.json';
+    const contentUrl = await provider.ui().input('Please enter the content URL: ');
 
-    const content = jettonContentToCell({ type: 1, uri: contentUrl });
+    const content = buildJettonOffChainMetadata(contentUrl);
 
     const jetton = provider.open(
         JettonMinter.createFromConfig(
             {
-                totalSupply: toNano('0'),
+                totalSupply: toNano('10'),
                 jettonWalletCode: walletCode,
                 adminAddress: senderAddress,
                 content: content,
